@@ -1,17 +1,77 @@
+terraform {
+  required_version = ">= 1.5"
+
+  backend "s3" {
+    bucket         = "s3-for-tf-01"
+    key            = "poc/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "tf-for-lockid"
+    encrypt        = true
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
+    }
+  }
+}
+
+############################
+# Variables
+############################
+
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "environment" {
+  description = "Environment"
+  type        = string
+  default     = "dev"
+}
+
+variable "project" {
+  description = "Project name"
+  type        = string
+  default     = "pipeline-test"
+}
+
+############################
+# Provider
+############################
+
 provider "aws" {
   region = var.aws_region
 }
 
-# Random suffix to ensure global uniqueness
+############################
+# Random suffix
+############################
+
 resource "random_id" "suffix" {
   byte_length = 4
 }
+
+############################
+# Local values
+############################
 
 locals {
   bucket_name = "${var.project}-${var.environment}-${random_id.suffix.hex}"
 }
 
+############################
 # S3 bucket
+############################
+
 resource "aws_s3_bucket" "demo" {
   bucket = local.bucket_name
 
@@ -23,7 +83,10 @@ resource "aws_s3_bucket" "demo" {
   }
 }
 
-# Enable versioning
+############################
+# Versioning
+############################
+
 resource "aws_s3_bucket_versioning" "versioning" {
   bucket = aws_s3_bucket.demo.id
 
@@ -32,18 +95,24 @@ resource "aws_s3_bucket_versioning" "versioning" {
   }
 }
 
-# # Enable encryption
-# resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
-#   bucket = aws_s3_bucket.demo.id
+############################
+# Encryption
+############################
 
-#   rule {
-#     apply_server_side_encryption_by_default {
-#       sse_algorithm = "AES256"
-#     }
-#   }
-# }
+resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
+  bucket = aws_s3_bucket.demo.id
 
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+############################
 # Block public access
+############################
+
 resource "aws_s3_bucket_public_access_block" "block" {
   bucket = aws_s3_bucket.demo.id
 
@@ -51,4 +120,16 @@ resource "aws_s3_bucket_public_access_block" "block" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+############################
+# Outputs
+############################
+
+output "bucket_name" {
+  value = aws_s3_bucket.demo.bucket
+}
+
+output "bucket_arn" {
+  value = aws_s3_bucket.demo.arn
 }
