@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket         = "s3-for-tf-01"
-    key            = "s3/s3-for-tf-01/poc/terraform.tfstate"
+    key            = "/poc/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "tf-for-lockid"
     encrypt        = true
